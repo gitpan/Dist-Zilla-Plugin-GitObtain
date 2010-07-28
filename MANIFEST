@@ -5,5 +5,4 @@ Makefile.PL
 README
 dist.ini
 lib/Dist/Zilla/Plugin/GitObtain.pm
-releases/Dist-Zilla-Plugin-GitObtain-0.01.tar.gz
 t/01-simple.t

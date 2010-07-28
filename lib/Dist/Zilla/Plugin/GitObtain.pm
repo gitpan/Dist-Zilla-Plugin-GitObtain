@@ -1,6 +1,6 @@
 package Dist::Zilla::Plugin::GitObtain;
 BEGIN {
-  $Dist::Zilla::Plugin::GitObtain::VERSION = '0.01';
+  $Dist::Zilla::Plugin::GitObtain::VERSION = '0.02';
 }
 
 # ABSTRACT: obtain files from a git repository before building a distribution
@@ -21,6 +21,13 @@ has 'git_dir' => (
     default => 'src',
 );
 
+has 'keep_git_dirs' => (
+    is => 'rw',
+    isa => 'Bool',
+    required => 1,
+    default => 0,
+);
+
 has _repos => (
     is => 'ro',
     isa => 'HashRef',
@@ -38,7 +45,7 @@ sub BUILDARGS {
     for my $project (keys %repos) {
         if ($project =~ /^--/) {
             (my $arg = $project) =~ s/^--//;
-            $args{$arg} = $repos{$project};
+            $args{$arg} = delete $repos{$project};
             next;
         }
         my ($url,$tag) = split ' ', $repos{$project};
@@ -53,26 +60,48 @@ sub BUILDARGS {
     };
 }
 
+my $git_dir_exists = 0;
+
 sub before_build {
     my $self = shift;
 
-    make_path($self->git_dir) or die "Can't create dir " . $self->git_dir . " -- $!";
+    if (-d $self->git_dir) {
+        $git_dir_exists = 1;
+        $self->log("using existing directory " . $self->git_dir);
+    } else {
+        $self->log("creating directory " . $self->git_dir);
+        make_path($self->git_dir) or die "Can't create directory " . $self->git_dir . " -- $!";
+    }
     for my $project (keys %{$self->_repos}) {
         my ($url,$tag) = map { $self->_repos->{$project}{$_} } qw/url tag/;
-        $self->log("cloning $project ($url)");
+        $self->log("cloning $project");
         my $git = Git::Wrapper->new($self->git_dir);
         $git->clone($url,$project) or die "Can't clone repository $url -- $!";
         next unless $tag;
-        $self->log("checkout $tag");
+        $self->log("checkout $project revision $tag");
         my $git_tag = Git::Wrapper->new($self->git_dir . '/' . $project);
         $git_tag->checkout($tag);
     }
 }
 
 
+sub _remove_dir {
+    my ($self,$dir) = @_;
+    $self->log("removing $dir");
+    remove_tree($dir) or warn "Can't remove directory $dir -- $!\n";
+}
+
 sub after_build {
     my $self = shift;
-    remove_tree($self->git_dir) or die "Can't remove dir " . $self->git_dir . " -- $!";
+    return if $self->keep_git_dirs;
+    if ($git_dir_exists) {
+        for my $project (keys %{$self->_repos}) {
+            my $dir = $self->git_dir . '/' . $project;
+            $self->_remove_dir($dir);
+        }
+    } else {
+        $self->_remove_dir($self->git_dir);
+    }
 }
 
 __PACKAGE__->meta->make_immutable;
@@ -87,14 +116,15 @@ Dist::Zilla::Plugin::GitObtain - obtain files from a git repository before build
 
 =head1 VERSION
 
-version 0.01
+version 0.02
 
 =head1 SYNOPSIS
 
 In your F<dist.ini>:
 
   [GitObtain]
-    --git_dir = some_dir
+    --git_dir       = some_dir
+    --keep_git_dirs = 1
     ;package    = url                                           tag
     rakudo      = git://github.com/rakudo/rakudo.git            2010.06
     http-daemon = git://gitorious.org/http-daemon/mainline.git
@@ -109,6 +139,8 @@ by using the C<--git_dir> option.  This directory path will be created
 if it does not already exist (including intermediate directories).
 After the build is complete, this directory will be removed.  If you do
 not specify C<--git_dir>, a default value of "src" will be used.
+If you don't want the directories that are created to be removed after
+the completion of the build, set C<--keep_git_dirs> to be a true value.
 
 Each repository has a name that will be used as the directory within the
 C<--git_dir> directory to place a clone of the git repository specified
