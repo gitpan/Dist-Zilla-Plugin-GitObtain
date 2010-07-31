@@ -1,6 +1,6 @@
 package Dist::Zilla::Plugin::GitObtain;
 BEGIN {
-  $Dist::Zilla::Plugin::GitObtain::VERSION = '0.03';
+  $Dist::Zilla::Plugin::GitObtain::VERSION = '0.04';
 }
 
 # ABSTRACT: obtain files from a git repository before building a distribution
@@ -17,7 +17,7 @@ has 'git_dir' => (
     is => 'rw',
     isa => 'Str',
     required => 1,
-    default => 'src',
+    default => '.',
 );
 
 has _repos => (
@@ -88,7 +88,7 @@ Dist::Zilla::Plugin::GitObtain - obtain files from a git repository before build
 
 =head1 VERSION
 
-version 0.03
+version 0.04
 
 =head1 SYNOPSIS
 

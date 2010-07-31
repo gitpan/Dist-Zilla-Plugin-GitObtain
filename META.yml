@@ -20,4 +20,4 @@ requires:
   Git::Wrapper: 0
   Moose: 0
   namespace::autoclean: 0
-version: 0.03
+version: 0.04
