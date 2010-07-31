@@ -22,15 +22,14 @@ my %WriteMakefileArgs = (
   'LICENSE' => 'perl',
   'NAME' => 'Dist::Zilla::Plugin::GitObtain',
   'PREREQ_PM' => {
-    'Dist::Zilla::Role::AfterBuild' => '0',
     'Dist::Zilla::Role::BeforeBuild' => '0',
     'Dist::Zilla::Role::Plugin' => '0',
-    'File::Path' => '0',
+    'File::Path' => '2.00',
     'Git::Wrapper' => '0',
     'Moose' => '0',
     'namespace::autoclean' => '0'
   },
-  'VERSION' => '0.02',
+  'VERSION' => '0.03',
   'test' => {
     'TESTS' => 't/*.t'
   }

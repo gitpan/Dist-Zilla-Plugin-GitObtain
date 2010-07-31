@@ -14,11 +14,10 @@ meta-spec:
   version: 1.4
 name: Dist-Zilla-Plugin-GitObtain
 requires:
-  Dist::Zilla::Role::AfterBuild: 0
   Dist::Zilla::Role::BeforeBuild: 0
   Dist::Zilla::Role::Plugin: 0
-  File::Path: 0
+  File::Path: 2.00
   Git::Wrapper: 0
   Moose: 0
   namespace::autoclean: 0
-version: 0.02
+version: 0.03
