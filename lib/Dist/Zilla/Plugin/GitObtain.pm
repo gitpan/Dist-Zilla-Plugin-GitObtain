@@ -1,11 +1,12 @@
 package Dist::Zilla::Plugin::GitObtain;
 BEGIN {
-  $Dist::Zilla::Plugin::GitObtain::VERSION = '0.04';
+  $Dist::Zilla::Plugin::GitObtain::VERSION = '0.05';
 }
 
 # ABSTRACT: obtain files from a git repository before building a distribution
 
 use Git::Wrapper;
+use File::Spec::Functions;
 use File::Path qw/ make_path remove_tree /;
 use Moose;
 use namespace::autoclean;
@@ -42,6 +43,7 @@ sub BUILDARGS {
             next;
         }
         my ($url,$tag) = split ' ', $repos{$project};
+        $tag ||= 'HEAD';
         $repos{$project} = { url => $url, tag => $tag };
     }
 
@@ -58,20 +60,36 @@ sub before_build {
     my $self = shift;
 
     if (-d $self->git_dir) {
-        $self->log("using existing directory " . $self->git_dir);
+        $self->log("using existing dir " . $self->git_dir);
     } else {
-        $self->log("creating directory " . $self->git_dir);
-        make_path($self->git_dir) or die "Can't create directory " . $self->git_dir . " -- $!";
+        $self->log("creating dir " . $self->git_dir);
+        make_path($self->git_dir) or die "Can't create dir " . $self->git_dir . " -- $!";
     }
     for my $project (keys %{$self->_repos}) {
         my ($url,$tag) = map { $self->_repos->{$project}{$_} } qw/url tag/;
-        $self->log("cloning $project");
-        my $git = Git::Wrapper->new($self->git_dir);
-        $git->clone($url,$project) or die "Can't clone repository $url -- $!";
-        next unless $tag;
-        $self->log("checkout $project revision $tag");
-        my $git_tag = Git::Wrapper->new($self->git_dir . '/' . $project);
-        $git_tag->checkout($tag);
+        my $dir = catfile($self->git_dir, $project);
+        if (-d $dir) {
+            if (-e catfile($dir, ".git")) {
+                my $git = Git::Wrapper->new($dir);
+                my ($wc_url) = $git->config("remote.origin.url");
+                if ($wc_url eq $url) {
+                    $self->log("checkout $project revision $tag");
+                    $git->checkout($tag);
+                } else {
+                    die "$project directory is not a GIT repository for $url ($wc_url)\n";
+                }
+            } else {
+                die "$project directory exists but is not a GIT repository\n";
+            }
+        } else {
+            $self->log("cloning $project ($url)");
+            my $git = Git::Wrapper->new($self->git_dir);
+            $git->clone($url,$project) or die "Can't clone repository $url -- $!";
+            next unless $tag;
+            $self->log("checkout $project revision $tag");
+            my $git_tag = Git::Wrapper->new($dir);
+            $git_tag->checkout($tag);
+        }
     }
 }
 
@@ -88,7 +106,7 @@ Dist::Zilla::Plugin::GitObtain - obtain files from a git repository before build
 
 =head1 VERSION
 
-version 0.04
+version 0.05
 
 =head1 SYNOPSIS
 

@@ -24,12 +24,13 @@ my %WriteMakefileArgs = (
   'PREREQ_PM' => {
     'Dist::Zilla::Role::BeforeBuild' => '0',
     'Dist::Zilla::Role::Plugin' => '0',
-    'File::Path' => '2.00',
+    'File::Path' => '2.08',
+    'File::Spec::Functions' => '0',
     'Git::Wrapper' => '0',
     'Moose' => '0',
     'namespace::autoclean' => '0'
   },
-  'VERSION' => '0.04',
+  'VERSION' => '0.05',
   'test' => {
     'TESTS' => 't/*.t'
   }
