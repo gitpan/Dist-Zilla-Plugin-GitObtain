@@ -1,6 +1,6 @@
 package Dist::Zilla::Plugin::GitObtain;
-BEGIN {
-  $Dist::Zilla::Plugin::GitObtain::VERSION = '0.05';
+{
+  $Dist::Zilla::Plugin::GitObtain::VERSION = '0.06';
 }
 
 # ABSTRACT: obtain files from a git repository before building a distribution
@@ -32,8 +32,7 @@ sub BUILDARGS {
     my %repos = ref($_[0]) ? %{$_[0]} : @_;
 
     my $zilla = delete $repos{zilla};
-    my $git_dir = delete $repos{plugin_name};
-    $git_dir = '.' if $git_dir eq 'GitObtain';
+    my $plugin_name = delete $repos{plugin_name};
 
     my %args;
     for my $project (keys %repos) {
@@ -43,15 +42,15 @@ sub BUILDARGS {
             next;
         }
         my ($url,$tag) = split ' ', $repos{$project};
-        $tag ||= 'HEAD';
+        $tag ||= 'master';
         $repos{$project} = { url => $url, tag => $tag };
     }
 
     return {
         zilla => $zilla,
-        plugin_name => 'GitObtain',
+        plugin_name => $plugin_name,
         _repos => \%repos,
-        git_dir => $git_dir,
+        git_dir => $args{git_dir} || '.',
         %args,
     };
 }
@@ -73,7 +72,17 @@ sub before_build {
                 my $git = Git::Wrapper->new($dir);
                 my ($wc_url) = $git->config("remote.origin.url");
                 if ($wc_url eq $url) {
-                    $self->log("checkout $project revision $tag");
+                    my $branch;
+                    for ($git->config({ list => 1 })) {
+                        next unless /^branch\.(\w+)\.remote=origin$/;
+                        $branch = $1;
+                        last;
+                    }
+                    $self->log("$project: checkout $branch");
+                    $git->checkout($branch);
+                    $self->log("$project: pull latest changes");
+                    $git->pull;
+                    $self->log("$project: checkout $tag");
                     $git->checkout($tag);
                 } else {
                     die "$project directory is not a GIT repository for $url ($wc_url)\n";
@@ -86,7 +95,7 @@ sub before_build {
             my $git = Git::Wrapper->new($self->git_dir);
             $git->clone($url,$project) or die "Can't clone repository $url -- $!";
             next unless $tag;
-            $self->log("checkout $project revision $tag");
+            $self->log("$project: checkout $tag");
             my $git_tag = Git::Wrapper->new($dir);
             $git_tag->checkout($tag);
         }
@@ -106,7 +115,7 @@ Dist::Zilla::Plugin::GitObtain - obtain files from a git repository before build
 
 =head1 VERSION
 
-version 0.05
+version 0.06
 
 =head1 SYNOPSIS
 
@@ -122,28 +131,22 @@ In your F<dist.ini>:
 This module uses L<Git::Wrapper> to obtain files from git repositories
 before building a distribution.
 
-You may specify the directory that git repositories will be placed into
-by following the plugin name (C<GitObtain>) with a forward slash
-(C</>), then the path to the particular directory. For instance, if your
-F<dist.ini> file contained the following section:
+Projects downloaded via git would be placed into the current directory
+by default. To specify an alternate location, use the C<--git_dir>
+option. This directory and any intermediate directories in the path will
+be created if they do not already exist.
 
-  [GitObtain/alpha/beta/gamma]
-    ...
-
-projects downloaded via git would be placed into the F<alpha/beta/gamma>
-directory. This directory and any intermediate directories in the path
-will be created if they do not already exist.  If you do not specify a
-path, then the git projects will be created in the current directory.
-
-Following the section header is the list of git repositories to download
-and include in the distribution. Each repository is specified by the
-name of the directory in which the repository will be checked out, an
-equals sign (C<=>), the URL to the git repository, and an optional "tag"
-to checkout (anything that may be passed to C<git checkout> may be used 
-for the "tag"). The repository directory will be created beneath the path
+Following the C<[GitObtain]> section header is the list of git
+repositories to download and include in the distribution. Each
+repository is specified by the name of the directory in which the
+repository will be checked out, an equals sign (C<=>), the URL to the
+git repository, and an optional "tag" to checkout. Anything that may be
+passed to C<git checkout> may be used for the "tag"; the default is
+C<master>. The repository directory will be created beneath the path
 specified in the section heading. So,
 
-  [GitObtain/foo]
+  [GitObtain]
+    --git_dir       = foo
     my_project      = git://github.com/example/my_project.git
     another_project = git://github.com/example/another_project.git
 
@@ -151,6 +154,22 @@ will create a F<foo> directory beneath the current directory and
 F<my_project> and F<another_project> directories inside of the F<foo>
 directory. Each of the F<my_project> and F<another_project> directories
 will be git repositories.
+
+To specify multiple target directories in which to obtain git repositories,
+use alternate section names in the section header:
+
+  [GitObtain / alpha ]
+    --git_dir       = foo
+    my_project      = git://github.com/example/my_project.git
+
+  [GitObtain / beta ]
+    --git_dir       = bar
+    another_project = git://github.com/example/another_project.git
+
+The above example config contains 2 GitObtain sections called C<alpha>
+and C<beta>. The C<alpha> section creates repositories in the F<foo>
+directory and the C<beta> section creates repositories in the F<bar>
+directory.
 
 =head1 AUTHOR
 
